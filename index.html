@@ -67,7 +67,22 @@ form { display: grid; gap: 10px; border: 1px solid var(--accent); border-radius:
 label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
 label input, label select { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--ink); font-size: 15px; background: var(--surface) }
 .form-btn { display: flex; gap: 8px; flex-wrap: wrap }
-.form-btn .btn-main { flex: 1 }
+.form-btn .btn-main { flex: 1 1 100% }
+.form-btn #fKaydet { flex: 1 }
+.okunus { min-height: 18px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--accent) }
+.okunus.hatali { color: var(--bad) }
+.tarih-gir { font-variant-numeric: tabular-nums; letter-spacing: .04em }
+.partiler { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 5px }
+.partiler li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; padding: 7px 10px; border-radius: 7px; background: var(--surface); font-size: 14px; font-variant-numeric: tabular-nums }
+.partiler li.iade { background: var(--bad-soft); color: var(--bad); font-weight: 600 }
+.firma-ata { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line) }
+.firma-ata input { flex: 1 1 220px; width: auto }
+.firma-yok { color: var(--warn); font-style: italic }
+#firmasizBtn[aria-pressed="true"] { background: var(--warn-soft); color: var(--warn); border-color: var(--warn) }
+@media (max-width: 640px) {
+  #fMiktar, .tarih-gir { font-size: 20px; padding: 11px 12px }
+  .form-btn button { padding: 13px; font-size: 16px }
+}
 .not-yeni { font-size: 12px; color: var(--warn) }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .toolbar input { flex: 1 1 260px; width: auto }
@@ -177,18 +192,25 @@ textarea { min-height: 110px; font-family: var(--f-mono); font-size: 12px }
           <div class="secilen" id="fAd"></div>
         </div>
         <div class="row2">
-          <label>Miktar<input id="fMiktar" type="number" inputmode="decimal" step="any" min="0" required></label>
+          <label>Miktar<input id="fMiktar" type="number" inputmode="decimal" enterkeyhint="next" step="any" min="0" required></label>
           <label>Birim<input id="fBirim" list="birimler" autocomplete="off" required></label>
         </div>
         <div class="row2">
-          <label>SKT<input id="fSkt" type="date" required></label>
-          <label>Geliş tarihi<input id="fGelis" type="date"></label>
+          <label>SKT<input id="fSkt" class="tarih-gir" inputmode="numeric" enterkeyhint="next" autocomplete="off" placeholder="250427 / 0427" required><span class="okunus" id="fSktOk"></span></label>
+          <label>Geliş tarihi<input id="fGelis" class="tarih-gir" inputmode="numeric" enterkeyhint="done" autocomplete="off" placeholder="120526"><span class="okunus" id="fGelisOk"></span></label>
         </div>
-        <label>Firma<input id="fFirma" list="firmaListe" autocomplete="off" placeholder="Firma adı yaz, listeden seç" required></label>
-        <div class="not-yeni" id="fFirmaNot" hidden>Bu firma listede yok, yeni firma olarak eklenecek.</div>
+        <div id="fFirmaAlan" hidden>
+          <label>Firma<input id="fFirma" list="firmaListe" autocomplete="off" placeholder="Firma adı yaz, listeden seç (boş bırakılabilir)"></label>
+          <div class="not-yeni" id="fFirmaNot" hidden>Bu firma listede yok, yeni firma olarak eklenecek.</div>
+        </div>
         <div class="form-btn">
-          <button type="submit" class="btn-main" id="fKaydet">Kaydet</button>
+          <button type="submit" class="btn-main" id="fDevam" data-devam="1">Kaydet, aynı ürüne yeni parti</button>
+          <button type="submit" id="fKaydet">Kaydet ve bitir</button>
           <button type="button" id="fVazgec">Vazgeç</button>
+        </div>
+        <div id="fPartiAlan" hidden>
+          <div class="ipucu">Bu üründen az önce girilenler</div>
+          <ul class="partiler" id="fPartiler"></ul>
         </div>
       </form>
       <datalist id="birimler">
@@ -203,6 +225,7 @@ textarea { min-height: 110px; font-family: var(--f-mono); font-size: 12px }
       <div class="toolbar">
         <input id="firmaFiltre" list="firmaListe" autocomplete="off" placeholder="Firma seç (çıktı için)…">
         <button id="filtreTemizle" type="button">Tüm firmalar</button>
+        <button id="firmasizBtn" type="button" aria-pressed="false">Firmasız <span id="nFirmasiz"></span></button>
       </div>
       <div class="filtreler">
         <div class="seg" role="group" aria-label="Duruma göre süz">
@@ -219,6 +242,10 @@ textarea { min-height: 110px; font-family: var(--f-mono); font-size: 12px }
         <button id="listeBtn" type="button">Seçilileri Excel indir</button>
       </div>
       <p class="ipucu">Kırmızı ürünler (SKT sınırı içinde) kendiliğinden seçili gelir. İade edilmeyecek ürünün kutusunu kaldır; sınır dışı bir ürünü iade edeceksen kutusunu işaretle. Excel'e yalnızca seçili ürünler aktarılır.</p>
+      <div class="firma-ata">
+        <input id="ataFirma" list="firmaListe" autocomplete="off" placeholder="Seçili kayıtlara atanacak firma…">
+        <button id="ataBtn" type="button" disabled>Seçililere firma ata</button>
+      </div>
       <label class="mobil-hepsi"><input type="checkbox" id="hepsiMobil">Görünenlerin hepsini seç</label>
       <div class="tablo">
         <table>
@@ -252,7 +279,7 @@ textarea { min-height: 110px; font-family: var(--f-mono); font-size: 12px }
 <script>
 const $ = s => document.querySelector(s);
 const st = { db: null, urunler: [], katalog: [], firmalar: [], kayitlar: [], ayar: { yapan: 'HALİL KAPDAN', not: 'SEZON SONU GELDİĞİ İÇİN' },
-  secili: null, editId: null, filtre: '', sinir: '2027-04-30', durum: 'tum', metin: '', silinenler: [] };
+  secili: null, editId: null, filtre: '', sinir: '2027-04-30', durum: 'tum', metin: '', silinenler: [], sonPartiler: [], firmasiz: false };
 const SINIR_VARSAYILAN = '2027-04-30';
 
 const TRMAP = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'â': 'a', 'î': 'i', 'û': 'u' };
@@ -299,22 +326,57 @@ $('#sonuc').addEventListener('click', e => {
 });
 
 /* ---------- Form ---------- */
+// Rakamla yazılan tarih: 6/8 hane gün.ay.yıl, 4 hane ay.yıl (gün 01)
+function tarihCoz(s) {
+  const r = String(s || '').replace(/\D/g, '');
+  if (!r) return { iso: '' };
+  let g, a, y;
+  if (r.length === 4) { g = 1; a = +r.slice(0, 2); y = 2000 + +r.slice(2); }
+  else if (r.length === 6) { g = +r.slice(0, 2); a = +r.slice(2, 4); y = 2000 + +r.slice(4); }
+  else if (r.length === 8) { g = +r.slice(0, 2); a = +r.slice(2, 4); y = +r.slice(4); }
+  else return { hata: 'eksik' };
+  const d = new Date(Date.UTC(y, a - 1, g));
+  if (d.getUTCFullYear() !== y || d.getUTCMonth() !== a - 1 || d.getUTCDate() !== g) return { hata: 'geçersiz tarih' };
+  return { iso: d.toISOString().slice(0, 10) };
+}
+function okunusGoster(inp) {
+  const ok = $('#' + inp.id + 'Ok'), c = tarihCoz(inp.value);
+  ok.textContent = c.hata ? (c.hata === 'eksik' && inp.value.replace(/\D/g, '').length < 4 ? '' : c.hata) : tarihTR(c.iso);
+  ok.classList.toggle('hatali', !!c.hata);
+}
+document.querySelectorAll('.tarih-gir').forEach(i => i.addEventListener('input', () => okunusGoster(i)));
+// Klavyedeki İleri/Enter: miktar → SKT → geliş → kaydet ve aynı ürüne devam
+['#fMiktar', '#fSkt', '#fGelis'].forEach((s, i, l) => $(s).addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (l[i + 1]) $(l[i + 1]).focus(); else $('#form').requestSubmit(st.editId ? $('#fKaydet') : $('#fDevam'));
+}));
+
 function formAc(urun, kayit) {
-  st.secili = urun; st.editId = kayit?.id || null;
+  st.secili = urun; st.editId = kayit?.id || null; st.sonPartiler = [];
   $('#fKod').textContent = (urun.k || 'Kodsuz ürün') + (urun.yeni ? ' · yeni' : '') + (kayit ? ' · düzenleniyor' : '');
   $('#fAd').textContent = urun.a;
   $('#fMiktar').value = kayit ? kayit.miktar : '';
   $('#fBirim').value = kayit ? kayit.birim : (urun.b || lsGet('sonBirim'));
-  $('#fSkt').value = kayit ? kayit.skt : '';
-  $('#fGelis').value = kayit ? (kayit.gelis || '') : '';
-  $('#fFirma').value = kayit ? kayit.firma : (st.filtre || lsGet('sonFirma'));
-  $('#fKaydet').textContent = kayit ? 'Değişikliği kaydet' : 'Kaydet';
+  $('#fSkt').value = kayit ? tarihTR(kayit.skt) : '';
+  $('#fGelis').value = kayit ? tarihTR(kayit.gelis) : '';
+  document.querySelectorAll('.tarih-gir').forEach(okunusGoster);
+  $('#fFirma').value = kayit ? (kayit.firma || '') : '';
+  $('#fFirmaAlan').hidden = !kayit;
+  $('#fDevam').hidden = !!kayit;
+  $('#fKaydet').textContent = kayit ? 'Değişikliği kaydet' : 'Kaydet ve bitir';
+  partiListesi();
   firmaNotu();
   $('#form').hidden = false;
   $('#form').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   $('#fMiktar').focus();
 }
-function formKapat() { $('#form').hidden = true; st.secili = null; st.editId = null; $('#ara').value = ''; ara(); $('#ara').focus(); }
+function partiListesi() {
+  $('#fPartiAlan').hidden = !st.sonPartiler.length;
+  $('#fPartiler').innerHTML = st.sonPartiler.map(p => `<li class="${iadeMi(p) ? 'iade' : ''}"><span>${esc(p.miktar)} ${esc(p.birim)} · SKT ${tarihTR(p.skt)}</span>
+    <span>${p.gelis ? 'Geliş ' + tarihTR(p.gelis) : 'Geliş yok'}</span></li>`).join('');
+}
+function formKapat() { $('#form').hidden = true; st.secili = null; st.editId = null; st.sonPartiler = []; $('#ara').value = ''; ara(); $('#ara').focus(); }
 $('#fVazgec').addEventListener('click', formKapat);
 const firmaVar = f => st.firmalar.some(x => norm(x) === norm(f));
 function firmaNotu() { const f = $('#fFirma').value.trim(); $('#fFirmaNot').hidden = !f || firmaVar(f); }
@@ -323,12 +385,17 @@ $('#fFirma').addEventListener('input', firmaNotu);
 $('#form').addEventListener('submit', async e => {
   e.preventDefault();
   if (!st.db || !st.secili) return;
-  let firma = up($('#fFirma').value);
-  const eslesen = st.firmalar.find(x => norm(x) === norm(firma)); if (eslesen) firma = eslesen;
+  const devam = !st.editId && !!e.submitter?.dataset.devam;
+  // Yeni girişte firma sorulmaz; düzenlemede eklenebilir
+  let firma = st.editId ? up($('#fFirma').value) : '';
+  const eslesen = firma && st.firmalar.find(x => norm(x) === norm(firma)); if (eslesen) firma = eslesen;
+  const skt = tarihCoz($('#fSkt').value), gelis = tarihCoz($('#fGelis').value);
+  if (!(Number($('#fMiktar').value) > 0)) { toast('Miktar gerekli.'); $('#fMiktar').focus(); return; }
+  if (!skt.iso) { toast('SKT eksik ya da hatalı. Örnek: 250427 veya 0427'); $('#fSkt').focus(); return; }
+  if (gelis.hata) { toast('Geliş tarihi hatalı. Örnek: 120526'); $('#fGelis').focus(); return; }
   const veri = { kod: st.secili.k || '', ad: st.secili.a, miktar: Number($('#fMiktar').value), birim: up($('#fBirim').value),
-    skt: $('#fSkt').value, gelis: $('#fGelis').value || '', firma };
-  if (!veri.ad || !(veri.miktar > 0) || !veri.skt || !veri.firma) { toast('Miktar, SKT ve firma gerekli.'); return; }
-  const btn = $('#fKaydet'); btn.disabled = true;
+    skt: skt.iso, gelis: gelis.iso || '', firma };
+  const btn = e.submitter || $('#fKaydet'); btn.disabled = true;
   try {
     if (st.editId) {
       const eski = st.kayitlar.find(k => k.id === st.editId);
@@ -336,18 +403,24 @@ $('#form').addEventListener('submit', async e => {
     } else {
       await st.db.collection('kayitlar').add({ ...veri, t: Date.now() });
     }
-    lsSet('sonFirma', firma); lsSet('sonBirim', veri.birim);
-    if (!eslesen) await ayarYaz({ firmalar: [...st.firmalar, firma].sort((a, b) => a.localeCompare(b, 'tr')) });
-    if (st.secili.yeni) await urunEkle({ k: '', a: veri.ad, b: veri.birim });
-    toast(st.editId ? 'Kayıt güncellendi' : `Kaydedildi: ${veri.ad}`);
-    formKapat();
+    lsSet('sonBirim', veri.birim);
+    if (firma && !eslesen) await ayarYaz({ firmalar: [...st.firmalar, firma].sort((a, b) => a.localeCompare(b, 'tr')) });
+    if (st.secili.yeni) { await urunEkle({ k: '', a: veri.ad, b: veri.birim }); st.secili = { ...st.secili, yeni: false, b: veri.birim }; }
+    toast(st.editId ? 'Kayıt güncellendi' : `Kaydedildi: ${veri.miktar} ${veri.birim} · SKT ${tarihTR(veri.skt)}`);
+    if (devam) {
+      st.sonPartiler.unshift(veri); partiListesi();
+      $('#fMiktar').value = ''; $('#fSkt').value = ''; $('#fGelis').value = '';
+      document.querySelectorAll('.tarih-gir').forEach(okunusGoster);
+      $('#fMiktar').focus();
+    } else formKapat();
   } catch (err) { hata(err); } finally { btn.disabled = false; }
 });
 
 /* ---------- Liste ---------- */
 // SKT sınır tarihine eşit ya da önceyse ürün iade edilir
 const iadeMi = k => !!k.skt && !!st.sinir && k.skt <= st.sinir;
-const firmaninKayitlari = () => st.filtre ? st.kayitlar.filter(k => norm(k.firma) === norm(st.filtre)) : st.kayitlar;
+const firmaninKayitlari = () => st.firmasiz ? st.kayitlar.filter(k => !k.firma)
+  : st.filtre ? st.kayitlar.filter(k => norm(k.firma) === norm(st.filtre)) : st.kayitlar;
 function gorunen() {
   let rows = firmaninKayitlari();
   if (st.durum === 'iade') rows = rows.filter(iadeMi);
@@ -376,10 +449,12 @@ function liste() {
       <td class="num">${i + 1}</td><td class="kod">${esc(k.kod)}</td><td class="ad">${esc(k.ad)}</td>
       <td class="num">${esc(k.miktar)}</td><td>${esc(k.birim)}</td>
       <td class="tarih skt">${tarihTR(k.skt)}${sktChip(k.skt)}</td><td class="tarih">${tarihTR(k.gelis)}</td>
-      <td class="firma">${esc(k.firma)}</td>
+      <td class="firma">${k.firma ? esc(k.firma) : '<span class="firma-yok">Firma yok</span>'}</td>
       <td class="islem"><button type="button" data-duz="${k.id}">Düzenle</button> <button type="button" data-sil="${k.id}">Sil</button></td></tr>`).join('');
   }
-  const firmaSay = new Set(st.kayitlar.map(k => norm(k.firma))).size;
+  const firmaSay = new Set(st.kayitlar.filter(k => k.firma).map(k => norm(k.firma))).size;
+  $('#nFirmasiz').textContent = st.kayitlar.filter(k => !k.firma).length;
+  $('#firmasizBtn').setAttribute('aria-pressed', st.firmasiz);
   $('#sKayit').textContent = st.kayitlar.length;
   $('#sFirma').textContent = firmaSay;
   $('#sGecti').textContent = st.kayitlar.filter(k => k.skt && gunFark(k.skt) < 0).length;
@@ -393,6 +468,7 @@ function liste() {
     hepsi.checked = rows.length > 0 && gorSec === rows.length; hepsi.indeterminate = gorSec > 0 && gorSec < rows.length; hepsi.disabled = !rows.length;
   }
   $('#listeBtn').textContent = `Seçilileri Excel indir (${gorSec})`; $('#listeBtn').disabled = !gorSec;
+  $('#ataBtn').textContent = `Seçili ${gorSec} kayda firma ata`; $('#ataBtn').disabled = !gorSec || !$('#ataFirma').value.trim();
   const tb2 = $('#tutanakBtn'), disarida = firmaRows.length - secSay;
   if (st.filtre && secSay) {
     $('#ciktiMetin').innerHTML = `<b>${esc(st.filtre)}</b> · ${secSay} seçili ürün tek tutanakta` + (disarida ? ` (${disarida} ürün seçili değil, tutanağa girmez)` : '');
@@ -451,11 +527,31 @@ function filtreUygula() {
   const v = $('#firmaFiltre').value.trim();
   const tam = [...st.firmalar, ...st.kayitlar.map(k => k.firma)].find(f => norm(f) === norm(v));
   st.filtre = tam || '';
+  if (st.filtre) st.firmasiz = false;
   liste();
 }
 $('#firmaFiltre').addEventListener('input', filtreUygula);
 $('#firmaFiltre').addEventListener('change', filtreUygula);
-$('#filtreTemizle').addEventListener('click', () => { $('#firmaFiltre').value = ''; st.filtre = ''; liste(); });
+$('#filtreTemizle').addEventListener('click', () => { $('#firmaFiltre').value = ''; st.filtre = ''; st.firmasiz = false; liste(); });
+$('#firmasizBtn').addEventListener('click', () => {
+  st.firmasiz = !st.firmasiz;
+  if (st.firmasiz) { $('#firmaFiltre').value = ''; st.filtre = ''; }
+  liste();
+});
+$('#ataFirma').addEventListener('input', liste);
+$('#ataBtn').addEventListener('click', async () => {
+  let firma = up($('#ataFirma').value);
+  if (!firma) return;
+  const eslesen = st.firmalar.find(x => norm(x) === norm(firma)); if (eslesen) firma = eslesen;
+  const rows = gorunen().filter(seciliMi);
+  if (!rows.length) return;
+  try {
+    await Promise.all(rows.map(({ id, ...k }) => st.db.doc('kayitlar/' + id).set({ ...k, firma })));
+    if (!eslesen) await ayarYaz({ firmalar: [...st.firmalar, firma].sort((a, b) => a.localeCompare(b, 'tr')) });
+    $('#ataFirma').value = '';
+    toast(`${rows.length} kayda firma atandı: ${firma}`);
+  } catch (e) { hata(e); }
+});
 $('.seg').addEventListener('click', e => {
   const b = e.target.closest('[data-durum]'); if (!b) return;
   st.durum = b.dataset.durum; lsSet('durum', st.durum); liste();
@@ -471,7 +567,7 @@ $('#sinirTarih').addEventListener('change', async () => {
 
 function firmaListesi() {
   const kayitli = new Map();
-  st.kayitlar.forEach(k => kayitli.set(k.firma, (kayitli.get(k.firma) || 0) + 1));
+  st.kayitlar.filter(k => k.firma).forEach(k => kayitli.set(k.firma, (kayitli.get(k.firma) || 0) + 1));
   const kayitliOnce = [...kayitli.keys()].sort((a, b) => a.localeCompare(b, 'tr'));
   const digerleri = st.firmalar.filter(f => !kayitli.has(f));
   $('#firmaListe').innerHTML = kayitliOnce.map(f => `<option value="${esc(f)}" label="${kayitli.get(f)} kayıt"></option>`).join('')
