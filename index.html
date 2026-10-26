@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b6767">
+<title>Sezon Sonu İade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+/* Düzen: solda ürün ekleme paneli, sağda kayıt listesi + firma tutanağı; telefonda alt alta */
+:root {
+  --bg: #eef2f3; --surface: #ffffff; --sunk: #f6f8f9; --ink: #15202a; --muted: #5a6872;
+  --line: #d3dce1; --accent: #0b6767; --accent-soft: #dcefee; --accent-ink: #ffffff;
+  --bad: #b42318; --bad-soft: #fde7e4; --warn: #9a4b05; --warn-soft: #fdf0dd;
+  --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1418; --surface: #161f25; --sunk: #11191e; --ink: #e4ecf0; --muted: #91a1ab;
+  --line: #29363f; --accent: #43b8b1; --accent-soft: #163634; --accent-ink: #052120;
+  --bad: #f2877d; --bad-soft: #3a1714; --warn: #f0a85e; --warn-soft: #362511; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #161f25; --sunk: #11191e; --ink: #e4ecf0; --muted: #91a1ab;
+  --line: #29363f; --accent: #43b8b1; --accent-soft: #163634; --accent-ink: #052120;
+  --bad: #f2877d; --bad-soft: #3a1714; --warn: #f0a85e; --warn-soft: #362511; color-scheme: dark }
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45 }
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 18px }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px }
+h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: .01em; text-wrap: balance }
+h1 small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); letter-spacing: .08em; text-transform: uppercase }
+.stats { display: flex; gap: 8px; flex-wrap: wrap }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--muted) }
+.stat b { color: var(--ink); font-size: 16px; font-variant-numeric: tabular-nums; margin-right: 4px }
+.stat.bad b { color: var(--bad) }
+.grid { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 18px; align-items: start }
+@media (max-width: 880px) { .grid { grid-template-columns: minmax(0, 1fr) } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0 }
+h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted) }
+input, select, textarea, button { font: inherit; color: inherit }
+input, select, textarea { width: 100%; background: var(--sunk); border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px; min-width: 0 }
+input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+#ara { font-size: 17px; padding: 12px 13px; background: var(--surface) }
+button { cursor: pointer; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); padding: 8px 13px; font-weight: 600 }
+button:disabled { opacity: .45; cursor: not-allowed }
+.btn-main { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+.sonuc { list-style: none; margin: 0; padding: 0; display: grid; max-height: 340px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px }
+.sonuc:empty { display: none }
+.sonuc li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--line) }
+.sonuc li:first-child { border-top: 0 }
+.sonuc .ad { font-weight: 600; overflow-wrap: anywhere }
+.kod { font-family: var(--f-mono); font-size: 12px; color: var(--muted) }
+.plus { width: 38px; height: 38px; padding: 0; font-size: 22px; line-height: 1; background: var(--accent-soft); color: var(--accent); border-color: transparent }
+.sonuc li.yeni { background: var(--sunk) }
+.ipucu { color: var(--muted); font-size: 13px; margin: 0 }
+form { display: grid; gap: 10px; border: 1px solid var(--accent); border-radius: 9px; padding: 13px; background: var(--accent-soft) }
+.secilen { font-weight: 700; font-size: 16px; overflow-wrap: anywhere }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
+label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
+label input, label select { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--ink); font-size: 15px; background: var(--surface) }
+.form-btn { display: flex; gap: 8px; flex-wrap: wrap }
+.form-btn .btn-main { flex: 1 }
+.not-yeni { font-size: 12px; color: var(--warn) }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.toolbar input { flex: 1 1 260px; width: auto }
+.cikti { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--sunk); border: 1px dashed var(--line) }
+.cikti span { flex: 1 1 200px; font-size: 14px; color: var(--muted) }
+.cikti span b { color: var(--ink) }
+.tablo { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px }
+table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 800px }
+th { text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--sunk); padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap }
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top }
+tr:last-child td { border-bottom: 0 }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums }
+td.tarih { white-space: nowrap; font-variant-numeric: tabular-nums }
+td.firma { font-size: 13px; color: var(--muted); max-width: 220px }
+.skt-chip { display: inline-block; margin-left: 4px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 99px }
+.skt-chip.gecti { background: var(--bad-soft); color: var(--bad) }
+.skt-chip.yakin { background: var(--warn-soft); color: var(--warn) }
+tr.iade td { background: var(--bad-soft) }
+tr.iade td:first-child { box-shadow: inset 4px 0 0 var(--bad) }
+tr.iade td.tarih.skt { color: var(--bad); font-weight: 700 }
+tr.secilmedi td:not(.sec) { opacity: .5 }
+tr.secilmedi td.ad { text-decoration: line-through }
+th.sec, td.sec { width: 34px; text-align: center; padding-right: 0 }
+.sec input { width: 18px; height: 18px; padding: 0; margin: 0; accent-color: var(--accent); cursor: pointer }
+.filtreler { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden }
+.seg button { border: 0; border-radius: 0; border-left: 1px solid var(--line); font-weight: 500; padding: 7px 11px }
+.seg button:first-child { border-left: 0 }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 700 }
+.seg button[data-durum="iade"][aria-pressed="true"] { background: var(--bad); color: var(--surface) }
+.sinir { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap }
+.sinir input { width: auto; padding: 6px 8px; background: var(--surface); color: var(--ink) }
+.filtreler #metinFiltre { flex: 1 1 180px; width: auto; padding: 7px 10px }
+.islem { white-space: nowrap; text-align: right }
+.islem button { padding: 4px 9px; font-size: 13px; font-weight: 500 }
+.islem button.onay { background: var(--bad); color: var(--surface); border-color: var(--bad) }
+.bos { padding: 28px 12px; text-align: center; color: var(--muted) }
+details.panel summary { cursor: pointer; font-weight: 600 }
+details.panel[open] summary { margin-bottom: 4px }
+.ayar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px }
+textarea { min-height: 110px; font-family: var(--f-mono); font-size: 12px }
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg);
+  padding: 10px 16px; border-radius: 8px; font-weight: 600; max-width: calc(100% - 32px); z-index: 20 }
+.uyari { background: var(--warn-soft); color: var(--warn); padding: 10px 12px; border-radius: 8px; font-weight: 500 }
+.silinen { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px }
+.silinen li { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--sunk); border-radius: 7px; font-size: 14px }
+.silinen li span { min-width: 0; overflow-wrap: anywhere }
+.silinen button { padding: 4px 10px; font-size: 13px; flex: none }
+/* Telefon: tablo satırları kart olur */
+@media (max-width: 640px) {
+  .tablo { overflow: visible; border: 0 }
+  table { min-width: 0 }
+  thead { display: none }
+  tbody { display: grid; gap: 10px }
+  tbody tr { display: grid; grid-template-columns: 34px auto 1fr; grid-template-areas:
+    "sec ad ad" "sec kod kod" "sec mik bir" "sec skt skt" "sec gel gel" "sec firma firma" "sec islem islem";
+    gap: 3px 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface) }
+  tbody tr.iade { background: var(--bad-soft); box-shadow: inset 4px 0 0 var(--bad) }
+  td { border: 0 !important; padding: 0; background: none !important; box-shadow: none !important; text-align: left !important }
+  td:nth-child(1) { grid-area: sec; align-self: start; padding-top: 2px }
+  td:nth-child(2) { display: none }
+  td:nth-child(3) { grid-area: kod }
+  td:nth-child(4) { grid-area: ad; font-weight: 700; font-size: 16px }
+  td:nth-child(5) { grid-area: mik; font-weight: 600 }
+  td:nth-child(5)::before { content: "Miktar: "; font-weight: 500; color: var(--muted) }
+  td:nth-child(6) { grid-area: bir }
+  td:nth-child(7) { grid-area: skt }
+  td:nth-child(7)::before { content: "SKT: "; color: var(--muted); font-weight: 500 }
+  td:nth-child(8) { grid-area: gel; color: var(--muted) }
+  td:nth-child(8)::before { content: "Geliş: " }
+  td:nth-child(8):empty { display: none }
+  td:nth-child(9) { grid-area: firma; max-width: none }
+  td:nth-child(10) { grid-area: islem; display: flex; gap: 8px; margin-top: 6px }
+  .islem button { flex: 1; padding: 9px 12px; font-size: 14px }
+  .sec input { width: 24px; height: 24px }
+  td.bos { grid-column: 1 / -1; grid-area: auto; text-align: center !important }
+  .mobil-hepsi { display: flex !important }
+}
+.mobil-hepsi { display: none; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink) }
+.mobil-hepsi input { width: 22px; height: 22px; accent-color: var(--accent) }
+@media (prefers-reduced-motion: no-preference) { form:not([hidden]) { animation: ac .15s ease-out } @keyframes ac { from { opacity: .4; transform: translateY(-3px) } } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1><small>Depo · Sezon sonu</small>İade Kayıt Listesi</h1>
+    <div class="stats">
+      <div class="stat"><b id="sKayit">0</b>kayıt</div>
+      <div class="stat"><b id="sFirma">0</b>firma</div>
+      <div class="stat bad"><b id="sIade">0</b>iade için seçili</div>
+      <div class="stat"><b id="sGecti">0</b>SKT geçmiş</div>
+    </div>
+  </header>
+
+  <div id="uyari" class="uyari" hidden></div>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="h-ekle">
+      <h2 id="h-ekle">Ürün ekle</h2>
+      <input id="ara" type="search" autocomplete="off" placeholder="Ürün adı veya kodu… (ör. PAN)">
+      <p class="ipucu" id="araIpucu">Ürün listesi yükleniyor…</p>
+      <ul class="sonuc" id="sonuc"></ul>
+
+      <form id="form" hidden>
+        <div>
+          <div class="kod" id="fKod"></div>
+          <div class="secilen" id="fAd"></div>
+        </div>
+        <div class="row2">
+          <label>Miktar<input id="fMiktar" type="number" inputmode="decimal" step="any" min="0" required></label>
+          <label>Birim<input id="fBirim" list="birimler" autocomplete="off" required></label>
+        </div>
+        <div class="row2">
+          <label>SKT<input id="fSkt" type="date" required></label>
+          <label>Geliş tarihi<input id="fGelis" type="date"></label>
+        </div>
+        <label>Firma<input id="fFirma" list="firmaListe" autocomplete="off" placeholder="Firma adı yaz, listeden seç" required></label>
+        <div class="not-yeni" id="fFirmaNot" hidden>Bu firma listede yok, yeni firma olarak eklenecek.</div>
+        <div class="form-btn">
+          <button type="submit" class="btn-main" id="fKaydet">Kaydet</button>
+          <button type="button" id="fVazgec">Vazgeç</button>
+        </div>
+      </form>
+      <datalist id="birimler">
+        <option value="KG"></option><option value="AD"></option><option value="KOL"></option><option value="KTU"></option>
+        <option value="PK"></option><option value="TNK"></option><option value="TRB"></option><option value="BDN"></option><option value="BOT"></option>
+      </datalist>
+      <datalist id="firmaListe"></datalist>
+    </section>
+
+    <section class="panel" aria-labelledby="h-liste">
+      <h2 id="h-liste">Kayıtlar</h2>
+      <div class="toolbar">
+        <input id="firmaFiltre" list="firmaListe" autocomplete="off" placeholder="Firma seç (çıktı için)…">
+        <button id="filtreTemizle" type="button">Tüm firmalar</button>
+      </div>
+      <div class="filtreler">
+        <div class="seg" role="group" aria-label="Duruma göre süz">
+          <button type="button" data-durum="tum" aria-pressed="true">Tümü <span id="nTum"></span></button>
+          <button type="button" data-durum="iade" aria-pressed="false">İade edilecek <span id="nIade"></span></button>
+          <button type="button" data-durum="kalan" aria-pressed="false">Kalacak <span id="nKalan"></span></button>
+        </div>
+        <label class="sinir">İade sınırı: SKT ≤<input id="sinirTarih" type="date"></label>
+        <input id="metinFiltre" type="search" autocomplete="off" placeholder="Listede ürün ara…">
+      </div>
+      <div class="cikti">
+        <span id="ciktiMetin">Tutanak almak için yukarıdan bir firma seç.</span>
+        <button id="tutanakBtn" class="btn-main" type="button" disabled>Tutanak Excel indir</button>
+        <button id="listeBtn" type="button">Seçilileri Excel indir</button>
+      </div>
+      <p class="ipucu">Kırmızı ürünler (SKT sınırı içinde) kendiliğinden seçili gelir. İade edilmeyecek ürünün kutusunu kaldır; sınır dışı bir ürünü iade edeceksen kutusunu işaretle. Excel'e yalnızca seçili ürünler aktarılır.</p>
+      <label class="mobil-hepsi"><input type="checkbox" id="hepsiMobil">Görünenlerin hepsini seç</label>
+      <div class="tablo">
+        <table>
+          <thead><tr>
+            <th class="sec"><input type="checkbox" id="hepsi" aria-label="Görünen ürünlerin hepsini seç"></th><th class="num">Sıra</th><th>Ürün kodu</th><th>Ürün adı</th><th class="num">Miktar</th><th>Birim</th>
+            <th>SKT</th><th>Geliş tarihi</th><th>Firma</th><th></th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <details class="panel" id="ayarlar">
+    <summary>Ayarlar ve listeler</summary>
+    <div class="ayar-grid">
+      <label>İadeyi yapan (tutanakta)<input id="aYapan"></label>
+      <label>Tutanak notu<input id="aNot"></label>
+    </div>
+    <div class="form-btn"><button type="button" id="aKaydet">Ayarları kaydet</button></div>
+    <p class="ipucu" id="listeBilgi"></p>
+    <label>Ürün listesini değiştir (Excel'den KOD · AD · BİRİM sütunlarını kopyalayıp yapıştır)<textarea id="aUrun" placeholder="YIY09000237	PANBACK DARK VELVET 10 KG	TRB"></textarea></label>
+    <div class="form-btn"><button type="button" id="aUrunYukle">Ürün listesini yükle</button></div>
+    <label>Son silinen kayıtlar (geri alınabilir)</label>
+    <ul class="silinen" id="silinenListe"></ul>
+    <p class="ipucu" id="silinenBos">Silinen kayıt yok.</p>
+  </details>
+</div>
+<div id="toast" hidden></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const st = { db: null, urunler: [], katalog: [], firmalar: [], kayitlar: [], ayar: { yapan: 'HALİL KAPDAN', not: 'SEZON SONU GELDİĞİ İÇİN' },
+  secili: null, editId: null, filtre: '', sinir: '2027-04-30', durum: 'tum', metin: '', silinenler: [] };
+const SINIR_VARSAYILAN = '2027-04-30';
+
+const TRMAP = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'â': 'a', 'î': 'i', 'û': 'u' };
+const norm = s => String(s || '').toLocaleLowerCase('tr').normalize('NFC').replace(/[çğıöşüâîû]/g, c => TRMAP[c]).replace(/\s+/g, ' ').trim();
+const up = s => String(s || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr');
+const tarihTR = iso => iso ? iso.split('-').reverse().join('.') : '';
+const bugunISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const gunFark = iso => Math.round((Date.UTC(...iso.split('-').map((v, i) => i === 1 ? v - 1 : +v)) - Date.UTC(...bugunISO().split('-').map((v, i) => i === 1 ? v - 1 : +v))) / 864e5);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800); }
+function uyari(m) { const u = $('#uyari'); u.textContent = m; u.hidden = !m; }
+function hata(e) { console.error(e); toast('Kaydedilemedi: ' + (e?.message || e?.code || 'bilinmeyen hata')); }
+
+/* ---------- Arama ---------- */
+function ara() {
+  const q = norm($('#ara').value), ul = $('#sonuc');
+  if (!st.urunler.length) { ul.innerHTML = ''; return; }
+  $('#araIpucu').hidden = !!q;
+  if (!q) { ul.innerHTML = ''; return; }
+  const parcalar = q.split(' ');
+  const bul = st.urunler.filter(u => parcalar.every(p => u._n.includes(p)));
+  bul.sort((a, b) => (b._n.startsWith(q) - a._n.startsWith(q)) || a.a.localeCompare(b.a, 'tr'));
+  const html = bul.slice(0, 40).map((u, i) => `<li><div><div class="ad">${esc(u.a)}</div><div class="kod">${esc(u.k)} · ${esc(u.b)}</div></div>
+    <button class="plus" type="button" data-i="${st.urunler.indexOf(u)}" aria-label="${esc(u.a)} ekle">+</button></li>`).join('');
+  const fazla = bul.length > 40 ? `<li><span class="ipucu">${bul.length - 40} ürün daha var, aramayı daralt.</span></li>` : '';
+  const yeni = `<li class="yeni"><div><div class="ad">“${esc(up($('#ara').value))}”</div><div class="kod">Listede yok, yeni ürün olarak ekle</div></div>
+    <button class="plus" type="button" data-yeni="1" aria-label="Yeni ürün ekle">+</button></li>`;
+  ul.innerHTML = html + fazla + (q.length >= 2 ? yeni : '');
+}
+$('#ara').addEventListener('input', ara);
+$('#ara').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const b = $('#sonuc .plus'); if (b) b.click();
+});
+$('#sonuc').addEventListener('click', e => {
+  const b = e.target.closest('.plus'); if (!b) return;
+  if (b.dataset.yeni) formAc({ k: '', a: up($('#ara').value), b: '' , yeni: true });
+  else formAc(st.urunler[+b.dataset.i]);
+});
+
+/* ---------- Form ---------- */
+function formAc(urun, kayit) {
+  st.secili = urun; st.editId = kayit?.id || null;
+  $('#fKod').textContent = (urun.k || 'Kodsuz ürün') + (urun.yeni ? ' · yeni' : '') + (kayit ? ' · düzenleniyor' : '');
+  $('#fAd').textContent = urun.a;
+  $('#fMiktar').value = kayit ? kayit.miktar : '';
+  $('#fBirim').value = kayit ? kayit.birim : (urun.b || lsGet('sonBirim'));
+  $('#fSkt').value = kayit ? kayit.skt : '';
+  $('#fGelis').value = kayit ? (kayit.gelis || '') : '';
+  $('#fFirma').value = kayit ? kayit.firma : (st.filtre || lsGet('sonFirma'));
+  $('#fKaydet').textContent = kayit ? 'Değişikliği kaydet' : 'Kaydet';
+  firmaNotu();
+  $('#form').hidden = false;
+  $('#form').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  $('#fMiktar').focus();
+}
+function formKapat() { $('#form').hidden = true; st.secili = null; st.editId = null; $('#ara').value = ''; ara(); $('#ara').focus(); }
+$('#fVazgec').addEventListener('click', formKapat);
+const firmaVar = f => st.firmalar.some(x => norm(x) === norm(f));
+function firmaNotu() { const f = $('#fFirma').value.trim(); $('#fFirmaNot').hidden = !f || firmaVar(f); }
+$('#fFirma').addEventListener('input', firmaNotu);
+
+$('#form').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!st.db || !st.secili) return;
+  let firma = up($('#fFirma').value);
+  const eslesen = st.firmalar.find(x => norm(x) === norm(firma)); if (eslesen) firma = eslesen;
+  const veri = { kod: st.secili.k || '', ad: st.secili.a, miktar: Number($('#fMiktar').value), birim: up($('#fBirim').value),
+    skt: $('#fSkt').value, gelis: $('#fGelis').value || '', firma };
+  if (!veri.ad || !(veri.miktar > 0) || !veri.skt || !veri.firma) { toast('Miktar, SKT ve firma gerekli.'); return; }
+  const btn = $('#fKaydet'); btn.disabled = true;
+  try {
+    if (st.editId) {
+      const eski = st.kayitlar.find(k => k.id === st.editId);
+      await st.db.doc('kayitlar/' + st.editId).set({ ...veri, t: eski?.t || Date.now(), ...(typeof eski?.secim === 'boolean' ? { secim: eski.secim } : {}) });
+    } else {
+      await st.db.collection('kayitlar').add({ ...veri, t: Date.now() });
+    }
+    lsSet('sonFirma', firma); lsSet('sonBirim', veri.birim);
+    if (!eslesen) await ayarYaz({ firmalar: [...st.firmalar, firma].sort((a, b) => a.localeCompare(b, 'tr')) });
+    if (st.secili.yeni) await urunEkle({ k: '', a: veri.ad, b: veri.birim });
+    toast(st.editId ? 'Kayıt güncellendi' : `Kaydedildi: ${veri.ad}`);
+    formKapat();
+  } catch (err) { hata(err); } finally { btn.disabled = false; }
+});
+
+/* ---------- Liste ---------- */
+// SKT sınır tarihine eşit ya da önceyse ürün iade edilir
+const iadeMi = k => !!k.skt && !!st.sinir && k.skt <= st.sinir;
+const firmaninKayitlari = () => st.filtre ? st.kayitlar.filter(k => norm(k.firma) === norm(st.filtre)) : st.kayitlar;
+function gorunen() {
+  let rows = firmaninKayitlari();
+  if (st.durum === 'iade') rows = rows.filter(iadeMi);
+  else if (st.durum === 'kalan') rows = rows.filter(k => !iadeMi(k));
+  if (st.metin) { const p = st.metin.split(' '); rows = rows.filter(k => { const n = norm(k.kod + ' ' + k.ad); return p.every(x => n.includes(x)); }); }
+  return rows;
+}
+// Kullanıcı kutuyu elle değiştirmediyse seçim SKT kuralından gelir
+const seciliMi = k => typeof k.secim === 'boolean' ? k.secim : iadeMi(k);
+const tutanakSatirlari = () => st.filtre ? firmaninKayitlari().filter(seciliMi) : [];
+function sktChip(iso) {
+  if (!iso) return '';
+  const g = gunFark(iso);
+  if (g < 0) return '<span class="skt-chip gecti">geçti</span>';
+  if (g <= 30) return `<span class="skt-chip yakin">${g} gün</span>`;
+  return '';
+}
+function liste() {
+  const rows = gorunen(), tb = $('#tbody');
+  if (!rows.length) {
+    const suzulu = st.durum !== 'tum' || st.metin;
+    tb.innerHTML = `<tr><td colspan="10" class="bos">${suzulu ? 'Bu süzgece uyan kayıt yok.' : st.filtre ? 'Bu firmaya ait kayıt yok.' : 'Henüz kayıt yok. Soldan ürün arayıp + ile ekle.'}</td></tr>`;
+  } else {
+    tb.innerHTML = rows.map((k, i) => `<tr class="${iadeMi(k) ? 'iade' : ''} ${seciliMi(k) ? '' : 'secilmedi'}">
+      <td class="sec"><input type="checkbox" data-sec="${k.id}" ${seciliMi(k) ? 'checked' : ''} aria-label="${esc(k.ad)} iade edilsin"></td>
+      <td class="num">${i + 1}</td><td class="kod">${esc(k.kod)}</td><td class="ad">${esc(k.ad)}</td>
+      <td class="num">${esc(k.miktar)}</td><td>${esc(k.birim)}</td>
+      <td class="tarih skt">${tarihTR(k.skt)}${sktChip(k.skt)}</td><td class="tarih">${tarihTR(k.gelis)}</td>
+      <td class="firma">${esc(k.firma)}</td>
+      <td class="islem"><button type="button" data-duz="${k.id}">Düzenle</button> <button type="button" data-sil="${k.id}">Sil</button></td></tr>`).join('');
+  }
+  const firmaSay = new Set(st.kayitlar.map(k => norm(k.firma))).size;
+  $('#sKayit').textContent = st.kayitlar.length;
+  $('#sFirma').textContent = firmaSay;
+  $('#sGecti').textContent = st.kayitlar.filter(k => k.skt && gunFark(k.skt) < 0).length;
+  $('#sIade').textContent = st.kayitlar.filter(seciliMi).length;
+  const firmaRows = firmaninKayitlari(), iadeSay = firmaRows.filter(iadeMi).length, secSay = firmaRows.filter(seciliMi).length;
+  $('#nTum').textContent = firmaRows.length; $('#nIade').textContent = iadeSay; $('#nKalan').textContent = firmaRows.length - iadeSay;
+  document.querySelectorAll('.seg [data-durum]').forEach(b => b.setAttribute('aria-pressed', b.dataset.durum === st.durum));
+  if (document.activeElement !== $('#sinirTarih')) $('#sinirTarih').value = st.sinir;
+  const gorSec = rows.filter(seciliMi).length;
+  for (const hepsi of [$('#hepsi'), $('#hepsiMobil')]) {
+    hepsi.checked = rows.length > 0 && gorSec === rows.length; hepsi.indeterminate = gorSec > 0 && gorSec < rows.length; hepsi.disabled = !rows.length;
+  }
+  $('#listeBtn').textContent = `Seçilileri Excel indir (${gorSec})`; $('#listeBtn').disabled = !gorSec;
+  const tb2 = $('#tutanakBtn'), disarida = firmaRows.length - secSay;
+  if (st.filtre && secSay) {
+    $('#ciktiMetin').innerHTML = `<b>${esc(st.filtre)}</b> · ${secSay} seçili ürün tek tutanakta` + (disarida ? ` (${disarida} ürün seçili değil, tutanağa girmez)` : '');
+    tb2.disabled = false;
+  } else {
+    $('#ciktiMetin').textContent = !st.filtre ? 'Tutanak almak için yukarıdan bir firma seç.'
+      : firmaRows.length ? 'Bu firmanın seçili ürünü yok. Tutanağa girecek ürünlerin kutusunu işaretle.' : 'Bu firmaya ait kayıt yok.';
+    tb2.disabled = true;
+  }
+}
+async function secimYaz(ids, deger) {
+  const degisen = st.kayitlar.filter(k => ids.includes(k.id) && seciliMi(k) !== deger);
+  degisen.forEach(k => k.secim = deger);
+  liste();
+  if (!st.db) return;
+  try { await Promise.all(degisen.map(({ id, ...k }) => st.db.doc('kayitlar/' + id).set(k))); }
+  catch (e) { hata(e); }
+}
+$('#tbody').addEventListener('change', e => {
+  const c = e.target.closest('[data-sec]'); if (c) secimYaz([c.dataset.sec], c.checked);
+});
+$('#hepsi').addEventListener('change', e => secimYaz(gorunen().map(k => k.id), e.target.checked));
+$('#hepsiMobil').addEventListener('change', e => secimYaz(gorunen().map(k => k.id), e.target.checked));
+
+function silinenListesi() {
+  const son = st.silinenler.slice(0, 30);
+  $('#silinenBos').hidden = !!son.length;
+  $('#silinenListe').innerHTML = son.map(k => `<li><span><b>${esc(k.ad)}</b> · ${esc(k.miktar)} ${esc(k.birim)} · ${esc(k.firma)}</span>
+    <button type="button" data-geri="${k.id}">Geri al</button></li>`).join('');
+}
+$('#silinenListe').addEventListener('click', async e => {
+  const b = e.target.closest('[data-geri]'); if (!b) return;
+  try { await st.db.doc('kayitlar/' + b.dataset.geri).update({ silindi: firebase.firestore.FieldValue.delete() }); toast('Kayıt geri alındı'); } catch (err) { hata(err); }
+});
+let silBekleyen = null, silT;
+$('#tbody').addEventListener('click', async e => {
+  const d = e.target.closest('[data-duz]'), s = e.target.closest('[data-sil]');
+  if (d) {
+    const k = st.kayitlar.find(x => x.id === d.dataset.duz);
+    if (k) formAc({ k: k.kod, a: k.ad, b: k.birim }, k);
+  }
+  if (s) {
+    if (silBekleyen !== s.dataset.sil) {
+      document.querySelectorAll('.islem .onay').forEach(b => { b.classList.remove('onay'); b.textContent = 'Sil'; });
+      silBekleyen = s.dataset.sil; s.classList.add('onay'); s.textContent = 'Silinsin mi?';
+      clearTimeout(silT); silT = setTimeout(() => { silBekleyen = null; s.classList.remove('onay'); s.textContent = 'Sil'; }, 4000);
+      return;
+    }
+    silBekleyen = null;
+    // Kayıt hemen yok edilmez, işaretlenir; Ayarlar'daki listeden geri alınabilir
+    try { await st.db.doc('kayitlar/' + s.dataset.sil).update({ silindi: Date.now() }); toast('Kayıt silindi. Ayarlar bölümünden geri alınabilir.'); } catch (err) { hata(err); }
+  }
+});
+
+function filtreUygula() {
+  const v = $('#firmaFiltre').value.trim();
+  const tam = [...st.firmalar, ...st.kayitlar.map(k => k.firma)].find(f => norm(f) === norm(v));
+  st.filtre = tam || '';
+  liste();
+}
+$('#firmaFiltre').addEventListener('input', filtreUygula);
+$('#firmaFiltre').addEventListener('change', filtreUygula);
+$('#filtreTemizle').addEventListener('click', () => { $('#firmaFiltre').value = ''; st.filtre = ''; liste(); });
+$('.seg').addEventListener('click', e => {
+  const b = e.target.closest('[data-durum]'); if (!b) return;
+  st.durum = b.dataset.durum; lsSet('durum', st.durum); liste();
+});
+$('#metinFiltre').addEventListener('input', () => { st.metin = norm($('#metinFiltre').value); liste(); });
+$('#sinirTarih').addEventListener('change', async () => {
+  const v = $('#sinirTarih').value;
+  if (!v) { $('#sinirTarih').value = st.sinir; return; }
+  st.sinir = v; liste();
+  if (!st.db) return;
+  try { await ayarYaz({ sinir: v }); toast(`İade sınırı: SKT ≤ ${tarihTR(v)}`); } catch (e) { hata(e); }
+});
+
+function firmaListesi() {
+  const kayitli = new Map();
+  st.kayitlar.forEach(k => kayitli.set(k.firma, (kayitli.get(k.firma) || 0) + 1));
+  const kayitliOnce = [...kayitli.keys()].sort((a, b) => a.localeCompare(b, 'tr'));
+  const digerleri = st.firmalar.filter(f => !kayitli.has(f));
+  $('#firmaListe').innerHTML = kayitliOnce.map(f => `<option value="${esc(f)}" label="${kayitli.get(f)} kayıt"></option>`).join('')
+    + digerleri.map(f => `<option value="${esc(f)}"></option>`).join('');
+}
+
+/* ---------- Veri ---------- */
+async function ayarYaz(degisen) {
+  const yeni = { firmalar: st.firmalar, yapan: st.ayar.yapan, not: st.ayar.not, sinir: st.sinir, ...degisen };
+  await st.db.doc('ayarlar/genel').set(yeni);
+}
+async function urunEkle(u) {
+  if (st.urunler.some(x => norm(x.a) === norm(u.a))) return;
+  const son = st.katalog[st.katalog.length - 1];
+  if (son && (son.items || []).length < 1500) await st.db.doc('katalog/' + son.id).set({ items: [...son.items, u] });
+  else await st.db.doc('katalog/p' + st.katalog.length).set({ items: [u] });
+}
+$('#aKaydet').addEventListener('click', async () => {
+  try { await ayarYaz({ yapan: up($('#aYapan').value), not: up($('#aNot').value) }); toast('Ayarlar kaydedildi'); } catch (e) { hata(e); }
+});
+$('#aUrunYukle').addEventListener('click', async () => {
+  const items = $('#aUrun').value.split(/\r?\n/).map(l => l.split(/\t|;/).map(x => x.trim())).filter(c => c.some(Boolean))
+    .map(c => c.length >= 2 ? { k: c[0], a: up(c[1]), b: up(c[2] || '') } : { k: '', a: up(c[0]), b: '' })
+    .filter(u => u.a && !/^(ÜRÜN|URUN|KALEM)/.test(u.a));
+  if (!items.length) { toast('Yapıştırılan metinde ürün bulunamadı.'); return; }
+  try {
+    const parca = [];
+    for (let i = 0; i < items.length; i += 1500) parca.push(items.slice(i, i + 1500));
+    for (let i = 0; i < parca.length; i++) await st.db.doc('katalog/p' + i).set({ items: parca[i] });
+    for (const d of st.katalog) if (+d.id.slice(1) >= parca.length) await st.db.doc('katalog/' + d.id).delete();
+    $('#aUrun').value = ''; toast(`${items.length} ürün yüklendi`);
+  } catch (e) { hata(e); }
+});
+
+/* ---------- Excel ---------- */
+const xDate = iso => { if (!iso) return null; const [y, m, d] = iso.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const ince = { style: 'thin' }, kenar = { top: ince, left: ince, bottom: ince, right: ince };
+
+function listeSayfasi(wb, rows) {
+  const ws = wb.addWorksheet('LİSTE');
+  ws.columns = [{ width: 6 }, { width: 14 }, { width: 40 }, { width: 10 }, { width: 8 }, { width: 12 }, { width: 13 }, { width: 38 }];
+  const h = ws.addRow(['SIRA', 'ÜRÜN KODU', 'ÜRÜN ADI', 'MİKTAR', 'BİRİM', 'SKT', 'GELİŞ TARİHİ', 'FİRMA']);
+  h.font = { bold: true }; h.eachCell(c => { c.border = kenar; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE7ECEF' } }; });
+  rows.forEach((k, i) => {
+    const r = ws.addRow([i + 1, k.kod, k.ad, k.miktar, k.birim, xDate(k.skt), xDate(k.gelis), k.firma]);
+    r.getCell(6).numFmt = 'dd.mm.yyyy'; r.getCell(7).numFmt = 'dd.mm.yyyy';
+    const kirmizi = iadeMi(k);
+    r.eachCell({ includeEmpty: true }, c => { c.border = kenar; if (kirmizi) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE7E4' } }; });
+    if (kirmizi) r.getCell(6).font = { bold: true, color: { argb: 'FFB42318' } };
+  });
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+  ws.autoFilter = { from: 'A1', to: 'H1' };
+}
+
+async function tutanakIndir() {
+  const firma = st.filtre, rows = tutanakSatirlari();
+  if (!firma || !rows.length) return;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('TUTANAK', { pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+    margins: { left: 0.2, right: 0.24, top: 0.59, bottom: 0.98, header: 0.51, footer: 0.51 } } });
+  ws.columns = [{ width: 4.3 }, { width: 36.9 }, { width: 15.7 }, { width: 16.6 }, { width: 12 }, { width: 24.9 }];
+  const F = (o = {}) => ({ name: 'Arial', size: 10, ...o });
+  ws.mergeCells('B3:F3');
+  Object.assign(ws.getCell('B3'), { value: 'T U T A N A K T I R', font: F({ size: 16, bold: true }), alignment: { horizontal: 'center' } });
+  ws.getRow(3).height = 20.25;
+  Object.assign(ws.getCell('F4'), { value: xDate(bugunISO()), numFmt: 'dd.mm.yyyy', font: F({ size: 12, bold: true }), alignment: { horizontal: 'right' } });
+  Object.assign(ws.getCell('B6'), { value: 'FİRMANIZDAN ALDIĞIMIZ ÜRÜN AŞAĞIDAKİ NEDENLERDEN DOLAYI İADE EDİLECEKTİR', font: F() });
+  Object.assign(ws.getCell('B7'), { value: 'BİLGİLERİNİZE SUNULUR', font: F() });
+  Object.assign(ws.getCell('B11'), { value: 'NOT : ' + (st.ayar.not || ''), font: F({ bold: true }) });
+  Object.assign(ws.getCell('B15'), { value: 'FİRMA  :  ' + firma, font: F({ size: 12, bold: true }) });
+  const bas = ['İADE EDİLEN ÜRÜN İSMİ', 'GELİŞ TARİHİ', 'ÜRÜN MİKTARI', 'CİNSİ', 'SON KULLANMA'];
+  bas.forEach((t, i) => Object.assign(ws.getRow(17).getCell(i + 2), { value: t, font: F({ bold: true }), border: kenar,
+    alignment: { horizontal: 'center', vertical: 'middle', wrapText: true } }));
+  ws.getRow(17).height = 17.25;
+  const satirSay = Math.max(rows.length, 10);
+  for (let i = 0; i < satirSay; i++) {
+    const k = rows[i], r = ws.getRow(18 + i);
+    r.height = 17.25;
+    const vals = k ? [k.ad, xDate(k.gelis), k.miktar, k.birim, xDate(k.skt)] : ['', '', '', '', ''];
+    vals.forEach((v, j) => {
+      const c = r.getCell(j + 2);
+      Object.assign(c, { value: v === '' ? null : v, font: F(), border: kenar, alignment: { horizontal: j === 0 ? 'left' : 'center', vertical: 'middle' } });
+      if (j === 1 || j === 4) c.numFmt = 'dd.mm.yyyy';
+    });
+  }
+  const alt = 18 + satirSay + 3;
+  Object.assign(ws.getCell('B' + alt), { value: 'NOT: İMZALI TESLİM TUTANAĞI ELİMİZDEDİR.', font: F({ bold: true }) });
+  Object.assign(ws.getCell('B' + (alt + 4)), { value: 'İADEYİ YAPAN', font: F({ size: 12, bold: true, underline: true }) });
+  Object.assign(ws.getCell('E' + (alt + 4)), { value: 'İADEYİ TESLİM ALAN', font: F({ size: 12, bold: true, underline: true }) });
+  Object.assign(ws.getCell('B' + (alt + 6)), { value: st.ayar.yapan || '', font: F({ bold: true }) });
+  listeSayfasi(wb, rows);
+  const kisa = firma.replace(/[\\/:*?"<>|]/g, '').slice(0, 60);
+  await indir(wb, `İADE TUTANAĞI - ${kisa} - ${tarihTR(bugunISO())}.xlsx`);
+}
+async function listeIndir() {
+  const rows = gorunen().filter(seciliMi);
+  if (!rows.length) { toast('Seçili ürün yok.'); return; }
+  const wb = new ExcelJS.Workbook();
+  listeSayfasi(wb, rows);
+  const ek = { iade: ' - İADE EDİLECEK', kalan: ' - KALACAK' }[st.durum] || '';
+  await indir(wb, `İADE LİSTESİ - ${st.filtre ? st.filtre.replace(/[\\/:*?"<>|]/g, '').slice(0, 60) : 'TÜM FİRMALAR'}${ek} - ${tarihTR(bugunISO())}.xlsx`);
+}
+async function indir(wb, ad) {
+  if (!window.ExcelJS) { toast('Excel kütüphanesi yüklenemedi, sayfayı yenile.'); return; }
+  try {
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: ad });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    toast('Excel indirildi');
+  } catch (e) {
+    toast('İndirilemedi: ' + (e?.message || e?.code));
+  }
+}
+$('#tutanakBtn').addEventListener('click', tutanakIndir);
+$('#listeBtn').addEventListener('click', listeIndir);
+
+/* ---------- Başlat ---------- */
+(async () => {
+  if (['tum', 'iade', 'kalan'].includes(lsGet('durum'))) st.durum = lsGet('durum');
+  liste();
+  if (!window.firebase) { uyari('Kayıt servisine bağlanılamadı. İnternet bağlantını kontrol edip sayfayı yenile.'); $('#araIpucu').textContent = 'Kayıt servisine bağlanılamadı.'; return; }
+  firebase.initializeApp({
+    apiKey: 'AIzaSyAIDDeYeUFlsNxdj8wHoEGW7fEAOXDqHsE',
+    authDomain: 'sezon-sonu-iade.firebaseapp.com',
+    projectId: 'sezon-sonu-iade',
+    storageBucket: 'sezon-sonu-iade.firebasestorage.app',
+    messagingSenderId: '571786379087',
+    appId: '1:571786379087:web:80060c8f9030a37a2d0f3a'
+  });
+  const db = firebase.firestore();
+  st.db = db;
+  db.collection('katalog').onSnapshot(s => {
+    st.katalog = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => +a.id.slice(1) - +b.id.slice(1));
+    st.urunler = st.katalog.flatMap(d => d.items || []).map(u => ({ ...u, _n: norm(u.k + ' ' + u.a) }));
+    $('#araIpucu').textContent = st.urunler.length ? `${st.urunler.length} ürün içinde ara. Enter ilk sonucu açar.` : 'Ürün listesi boş. Ayarlar bölümünden ürün listesini yapıştır.';
+    $('#listeBilgi').textContent = `Kayıtlı ${st.urunler.length} ürün, ${st.firmalar.length} firma var.`;
+    ara();
+  }, e => uyari('Ürün listesi okunamadı: ' + e.message));
+  db.doc('ayarlar/genel').onSnapshot(s => {
+    const d = s.exists ? s.data() : {};
+    st.firmalar = Array.isArray(d.firmalar) ? d.firmalar : [];
+    st.ayar = { yapan: d.yapan ?? 'HALİL KAPDAN', not: d.not ?? 'SEZON SONU GELDİĞİ İÇİN' };
+    st.sinir = d.sinir || SINIR_VARSAYILAN;
+    liste();
+    if (document.activeElement !== $('#aYapan')) $('#aYapan').value = st.ayar.yapan;
+    if (document.activeElement !== $('#aNot')) $('#aNot').value = st.ayar.not;
+    $('#listeBilgi').textContent = `Kayıtlı ${st.urunler.length} ürün, ${st.firmalar.length} firma var.`;
+    firmaListesi(); firmaNotu();
+  }, e => uyari('Ayarlar okunamadı: ' + e.message));
+  db.collection('kayitlar').orderBy('t').limit(1000).onSnapshot(s => {
+    const hepsi = s.docs.map(d => ({ id: d.id, ...d.data() }));
+    st.kayitlar = hepsi.filter(k => !k.silindi);
+    st.silinenler = hepsi.filter(k => k.silindi).sort((a, b) => b.silindi - a.silindi);
+    if (hepsi.length >= 1000) uyari('1000 kayıt sınırına gelindi. Eski kayıtları Excel olarak alıp silin.');
+    firmaListesi(); filtreUygula(); silinenListesi();
+  }, e => uyari('Kayıtlar okunamadı: ' + e.message));
+})();
+</script>
