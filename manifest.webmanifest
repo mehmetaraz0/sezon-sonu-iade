@@ -1,0 +1,16 @@
+{
+  "name": "Sezon Sonu İade",
+  "short_name": "İade",
+  "description": "Depo sezon sonu iade kayıt listesi ve firma tutanağı",
+  "lang": "tr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef2f3",
+  "theme_color": "#0b6767",
+  "icons": [
+    { "src": "ikon/ikon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "ikon/ikon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "ikon/ikon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
