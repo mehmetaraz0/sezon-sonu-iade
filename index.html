@@ -373,10 +373,20 @@ function tarihCoz(s) {
   if (d.getUTCFullYear() !== y || d.getUTCMonth() !== a - 1 || d.getUTCDate() !== g) return { hata: 'geçersiz tarih' };
   return { iso: d.toISOString().slice(0, 10) };
 }
+// SKT bugünden önce, geliş tarihi bugünden sonra olamaz.
+// Düzenlemede tarih değiştirilmediyse eski kayıt kaydedilebilsin diye kural uygulanmaz.
+function tarihKurali(id, iso) {
+  if (!iso) return '';
+  const eski = st.editId && st.kayitlar.find(k => k.id === st.editId);
+  if (id === 'fSkt' && iso < bugunISO() && iso !== eski?.skt) return 'SKT geçmiş, girilemez';
+  if (id === 'fGelis' && iso > bugunISO() && iso !== eski?.gelis) return 'Gelecek tarih olamaz';
+  return '';
+}
 function okunusGoster(inp) {
-  const ok = $('#' + inp.id + 'Ok'), c = tarihCoz(inp.value);
-  ok.textContent = c.hata ? (c.hata === 'eksik' && inp.value.replace(/\D/g, '').length < 4 ? '' : c.hata) : tarihTR(c.iso);
-  ok.classList.toggle('hatali', !!c.hata);
+  const ok = $('#' + inp.id + 'Ok'), c = tarihCoz(inp.value), kural = c.iso ? tarihKurali(inp.id, c.iso) : '';
+  ok.textContent = c.hata ? (c.hata === 'eksik' && inp.value.replace(/\D/g, '').length < 4 ? '' : c.hata)
+    : kural ? `${tarihTR(c.iso)} · ${kural}` : tarihTR(c.iso);
+  ok.classList.toggle('hatali', !!(c.hata || kural));
 }
 document.querySelectorAll('.tarih-gir').forEach(i => i.addEventListener('input', () => okunusGoster(i)));
 // Klavyedeki İleri/Enter: miktar → SKT → geliş → kaydet ve aynı ürüne devam
@@ -427,6 +437,9 @@ $('#form').addEventListener('submit', async e => {
   if (!(Number($('#fMiktar').value) > 0)) { toast('Miktar gerekli.'); $('#fMiktar').focus(); return; }
   if (!skt.iso) { toast('SKT eksik ya da hatalı. Örnek: 250427 veya 0427'); $('#fSkt').focus(); return; }
   if (gelis.hata) { toast('Geliş tarihi hatalı. Örnek: 120526'); $('#fGelis').focus(); return; }
+  const sktKural = tarihKurali('fSkt', skt.iso), gelisKural = tarihKurali('fGelis', gelis.iso);
+  if (sktKural) { toast(`${sktKural}: ${tarihTR(skt.iso)}`); $('#fSkt').focus(); return; }
+  if (gelisKural) { toast(`Geliş tarihi ${gelisKural.toLocaleLowerCase('tr')}: ${tarihTR(gelis.iso)}`); $('#fGelis').focus(); return; }
   const veri = { kod: st.secili.k || '', ad: st.secili.a, miktar: Number($('#fMiktar').value), birim: up($('#fBirim').value),
     skt: skt.iso, gelis: gelis.iso || '', firma };
   const btn = e.submitter || $('#fKaydet'); btn.disabled = true;
