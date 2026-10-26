@@ -89,7 +89,17 @@ label input, label select { text-transform: none; letter-spacing: 0; font-weight
 .partiler li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; padding: 7px 10px; border-radius: 7px; background: var(--surface); font-size: 14px; font-variant-numeric: tabular-nums }
 .partiler li.iade { background: var(--bad-soft); color: var(--bad); font-weight: 600 }
 .firma-ata { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line) }
-.firma-ata input { flex: 1 1 220px; width: auto }
+.firma-ata .oneri-kap { flex: 1 1 220px }
+.oneri-kap { position: relative; display: block; min-width: 0 }
+span.oneri-kap > input { width: 100%; flex: none }
+.toolbar .oneri-kap { flex: 1 1 260px }
+.oneri { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 15; margin: 0; padding: 0; list-style: none;
+  max-height: 280px; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / .15);
+  text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--ink) }
+.oneri li { display: flex; justify-content: space-between; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); cursor: pointer; font-size: 14px }
+.oneri li:first-child { border-top: 0 }
+.oneri li:hover, .oneri li.aktif { background: var(--accent-soft) }
+.oneri li small { color: var(--muted); white-space: nowrap }
 .firma-yok { color: var(--warn); font-style: italic }
 #firmasizBtn[aria-pressed="true"] { background: var(--warn-soft); color: var(--warn); border-color: var(--warn) }
 @media (max-width: 640px) {
@@ -225,7 +235,7 @@ textarea { min-height: 110px; font-family: var(--f-mono); font-size: 12px }
           <label>Geliş tarihi<input id="fGelis" class="tarih-gir" inputmode="numeric" enterkeyhint="done" autocomplete="off" placeholder="120526"><span class="okunus" id="fGelisOk"></span></label>
         </div>
         <div id="fFirmaAlan" hidden>
-          <label>Firma<input id="fFirma" list="firmaListe" autocomplete="off" placeholder="Firma adı yaz, listeden seç (boş bırakılabilir)"></label>
+          <label>Firma<input id="fFirma" autocomplete="off" placeholder="Firma adı yaz, listeden seç (boş bırakılabilir)"></label>
           <div class="not-yeni" id="fFirmaNot" hidden>Bu firma listede yok, yeni firma olarak eklenecek.</div>
         </div>
         <div class="form-btn">
@@ -242,13 +252,12 @@ textarea { min-height: 110px; font-family: var(--f-mono); font-size: 12px }
         <option value="KG"></option><option value="AD"></option><option value="KOL"></option><option value="KTU"></option>
         <option value="PK"></option><option value="TNK"></option><option value="TRB"></option><option value="BDN"></option><option value="BOT"></option>
       </datalist>
-      <datalist id="firmaListe"></datalist>
     </section>
 
     <section class="panel" aria-labelledby="h-liste">
       <h2 id="h-liste">Kayıtlar</h2>
       <div class="toolbar">
-        <input id="firmaFiltre" list="firmaListe" autocomplete="off" placeholder="Firma seç (çıktı için)…">
+        <input id="firmaFiltre" autocomplete="off" placeholder="Firma seç (çıktı için)…">
         <button id="filtreTemizle" type="button">Tüm firmalar</button>
         <button id="firmasizBtn" type="button" aria-pressed="false">Firmasız <span id="nFirmasiz"></span></button>
       </div>
@@ -268,7 +277,7 @@ textarea { min-height: 110px; font-family: var(--f-mono); font-size: 12px }
       </div>
       <p class="ipucu">Kırmızı ürünler (SKT sınırı içinde) kendiliğinden seçili gelir. İade edilmeyecek ürünün kutusunu kaldır; sınır dışı bir ürünü iade edeceksen kutusunu işaretle. Excel'e yalnızca seçili ürünler aktarılır.</p>
       <div class="firma-ata">
-        <input id="ataFirma" list="firmaListe" autocomplete="off" placeholder="Seçili kayıtlara atanacak firma…">
+        <input id="ataFirma" autocomplete="off" placeholder="Seçili kayıtlara atanacak firma…">
         <button id="ataBtn" type="button" disabled>Seçililere firma ata</button>
       </div>
       <label class="mobil-hepsi"><input type="checkbox" id="hepsiMobil">Görünenlerin hepsini seç</label>
@@ -595,9 +604,46 @@ function firmaListesi() {
   st.kayitlar.filter(k => k.firma).forEach(k => kayitli.set(k.firma, (kayitli.get(k.firma) || 0) + 1));
   const kayitliOnce = [...kayitli.keys()].sort((a, b) => a.localeCompare(b, 'tr'));
   const digerleri = st.firmalar.filter(f => !kayitli.has(f));
-  $('#firmaListe').innerHTML = kayitliOnce.map(f => `<option value="${esc(f)}" label="${kayitli.get(f)} kayıt"></option>`).join('')
-    + digerleri.map(f => `<option value="${esc(f)}"></option>`).join('');
+  st.firmaAday = [...kayitliOnce.map(f => ({ ad: f, adet: kayitli.get(f) })), ...digerleri.map(f => ({ ad: f, adet: 0 }))]
+    .map(x => ({ ...x, _n: norm(x.ad) }));
 }
+
+// Tarayıcının hazır öneri listesi (datalist) Türkçe harfleri eşleştirmez (İ/I, ı/i, ğ/g…);
+// firmalar aynı norm() ile aranır: "akdeniz dağıtım" → BIDFOOD AKDENIZ DAGITIM
+function firmaOnerici(inp) {
+  const kap = document.createElement('span'); kap.className = 'oneri-kap';
+  inp.parentNode.insertBefore(kap, inp); kap.appendChild(inp);
+  const ul = document.createElement('ul'); ul.className = 'oneri'; ul.hidden = true; kap.appendChild(ul);
+  let liste = [], aktif = -1;
+  const ciz = () => {
+    const q = norm(inp.value), p = q.split(' ').filter(Boolean);
+    liste = (st.firmaAday || []).filter(f => p.every(x => f._n.includes(x)))
+      .sort((a, b) => (b._n.startsWith(q) - a._n.startsWith(q)) || (b.adet - a.adet)).slice(0, 30);
+    aktif = -1;
+    if (!liste.length || (liste.length === 1 && liste[0].ad === inp.value)) { ul.hidden = true; return; }
+    ul.innerHTML = liste.map((f, i) => `<li data-i="${i}">${esc(f.ad)}${f.adet ? `<small>${f.adet} kayıt</small>` : ''}</li>`).join('');
+    ul.hidden = false;
+  };
+  const sec = i => {
+    inp.value = liste[i].ad; ul.hidden = true;
+    inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  inp.addEventListener('input', e => { if (e.isTrusted) ciz(); });
+  inp.addEventListener('focus', ciz);
+  inp.addEventListener('blur', () => setTimeout(() => { ul.hidden = true; }, 150));
+  inp.addEventListener('keydown', e => {
+    if (ul.hidden) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      aktif = (aktif + (e.key === 'ArrowDown' ? 1 : -1) + liste.length) % liste.length;
+      ul.querySelectorAll('li').forEach((li, i) => li.classList.toggle('aktif', i === aktif));
+      ul.children[aktif].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && aktif >= 0) { e.preventDefault(); sec(aktif); }
+    else if (e.key === 'Escape') ul.hidden = true;
+  });
+  ul.addEventListener('mousedown', e => { const li = e.target.closest('li'); if (li) { e.preventDefault(); sec(+li.dataset.i); } });
+}
+['#firmaFiltre', '#ataFirma', '#fFirma'].forEach(s => firmaOnerici($(s)));
 
 /* ---------- Veri ---------- */
 async function ayarYaz(degisen) {
