@@ -674,6 +674,13 @@ async function indir(wb, ad) {
   if (!window.ExcelJS) { toast('Excel kütüphanesi yüklenemedi, sayfayı yenile.'); return; }
   try {
     const buf = await wb.xlsx.writeBuffer();
+    // Android uygulamasında blob indirme çalışmaz; dosya uygulamaya base64 olarak verilir
+    if (window.IadeAndroid) {
+      const b = new Uint8Array(buf); let s = '';
+      for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+      IadeAndroid.kaydet(ad, btoa(s));
+      return;
+    }
     const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
     const a = Object.assign(document.createElement('a'), { href: url, download: ad });
     document.body.appendChild(a); a.click(); a.remove();

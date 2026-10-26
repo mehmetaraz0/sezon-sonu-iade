@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+// İmza bilgisi depoya girmez: android/keystore.properties ve .jks yalnızca bu bilgisayarda
+def imza = new Properties()
+def imzaDosya = rootProject.file('keystore.properties')
+if (imzaDosya.exists()) imza.load(new FileInputStream(imzaDosya))
+
+android {
+    namespace 'com.mehmetaraz.sezonsonuiade'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.mehmetaraz.sezonsonuiade'
+        minSdk 29
+        targetSdk 36
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        release {
+            if (imzaDosya.exists()) {
+                storeFile rootProject.file(imza['storeFile'])
+                storePassword imza['storePassword']
+                keyAlias imza['keyAlias']
+                keyPassword imza['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

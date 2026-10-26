@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kutu ve geri dönüş oku: iade simgesi -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,46 L54,36 L74,46 L74,70 L54,80 L34,70 Z" />
+    <path
+        android:fillColor="#0B6767"
+        android:pathData="M38,49 L52,56 L52,74 L38,67 Z M56,56 L70,49 L70,67 L56,74 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,28 L46,28 L46,22 L36,31 L46,40 L46,34 L60,34 Z" />
+</vector>

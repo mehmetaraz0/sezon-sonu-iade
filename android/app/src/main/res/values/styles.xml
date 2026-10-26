@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ana">#0B6767</color>
+    <color name="zemin">#EEF2F3</color>
+    <style name="Tema" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/ana</item>
+        <item name="android:windowBackground">@color/zemin</item>
+        <item name="android:colorAccent">@color/ana</item>
+    </style>
+</resources>
