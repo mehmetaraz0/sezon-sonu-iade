@@ -38,6 +38,7 @@ header { display: flex; flex-wrap: wrap; align-items: end; justify-content: spac
 h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: .01em; text-wrap: balance }
 h1 small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); letter-spacing: .08em; text-transform: uppercase }
 .stats { display: flex; gap: 8px; flex-wrap: wrap }
+.apk { margin-left: auto; padding: 7px 12px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap }
 .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--muted) }
 .stat b { color: var(--ink); font-size: 16px; font-variant-numeric: tabular-nums; margin-right: 4px }
 .stat.bad b { color: var(--bad) }
@@ -169,6 +170,7 @@ textarea { min-height: 110px; font-family: var(--f-mono); font-size: 12px }
 <div class="wrap">
   <header>
     <h1><small>Depo · Sezon sonu</small>İade Kayıt Listesi</h1>
+    <a id="apkLink" class="apk" href="SezonSonuIade.apk" download="SezonSonuIade.apk">Android uygulamasını indir</a>
     <div class="stats">
       <div class="stat"><b id="sKayit">0</b>kayıt</div>
       <div class="stat"><b id="sFirma">0</b>firma</div>
@@ -695,6 +697,8 @@ $('#listeBtn').addEventListener('click', listeIndir);
 
 /* ---------- Başlat ---------- */
 (async () => {
+  // Uygulamanın içindeyken indirme bağlantısı gereksiz
+  if (window.IadeAndroid) $('#apkLink').hidden = true;
   if (['tum', 'iade', 'kalan'].includes(lsGet('durum'))) st.durum = lsGet('durum');
   liste();
   if (!window.firebase) { uyari('Kayıt servisine bağlanılamadı. İnternet bağlantını kontrol edip sayfayı yenile.'); $('#araIpucu').textContent = 'Kayıt servisine bağlanılamadı.'; return; }
